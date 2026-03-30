@@ -27,13 +27,22 @@
       <div class="content">
         Address search
         <div class="sub header">
-          Search is fixed at the bottom-left. Pick a Places suggestion or type an address and press Enter / Go.
+          Search panel (top-right): type for address and place suggestions (Places Autocomplete, US-biased to the visible map).
+          Choose a suggestion with mouse or keyboard, or type a full query and click <strong>Go</strong> to geocode.
           The map recenters and the table ranks up to 25 markets by driving distance (Google Distance Matrix).
         </div>
       </div>
     </h2>
     <div class="map-wrap">
       <div id="map" role="application" aria-label="Los Angeles retail food markets map"></div>
+      <div class="map-search-panel" aria-label="Address search">
+        <label class="map-search-label" for="pac-input">Search</label>
+        <div class="map-search-row">
+          <input id="pac-input" type="text" placeholder="Address, ZIP, or place…" autocomplete="on" aria-label="Search address">
+          <button type="button" id="pac-search-btn">Go</button>
+        </div>
+        <p class="map-search-hint">Suggestions as you type; Enter selects a highlighted row. Use <strong>Go</strong> to search the exact text without picking a suggestion.</p>
+      </div>
     </div>
     <p id="market-load-status" class="ui small meta" style="text-align:center;margin-top:0.75rem" aria-live="polite">Loading market list…</p>
   </div>
@@ -52,15 +61,6 @@
       </thead>
       <tbody id="output"></tbody>
     </table>
-  </div>
-
-  <div class="map-search-float" aria-label="Address search">
-    <label class="map-search-label" for="pac-input">Search</label>
-    <div class="map-search-row">
-      <input id="pac-input" type="text" placeholder="Address, ZIP, or place…" autocomplete="off" aria-label="Search address">
-      <button type="button" id="pac-search-btn">Go</button>
-    </div>
-    <p class="map-search-hint">Pick a suggestion, or type and press Enter / Go.</p>
   </div>
 
   <script src="lacity-location.js"></script>

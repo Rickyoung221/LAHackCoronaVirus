@@ -1,10 +1,11 @@
-/* Homepage layout + map + fixed search (LA Markets Near You) */
+/* Homepage layout + map + search panel (LA Markets Near You) */
 
 .map-wrap {
   position: relative;
   margin-top: 1.5rem;
   border-radius: 0.28571429rem;
-  overflow: hidden;
+  /* overflow:visible so Places .pac-container is not clipped (it sits under this subtree) */
+  overflow: visible;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.12), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
@@ -13,25 +14,35 @@
   min-height: 55vh;
   height: 480px;
   background: #e8eef2;
+  border-radius: 0.28571429rem;
+  overflow: hidden;
 }
 
-.map-search-float {
-  position: fixed !important;
-  left: 16px !important;
-  bottom: 16px !important;
-  right: auto !important;
-  top: auto !important;
-  z-index: 2147483646;
+.map-search-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  z-index: 100;
+  overflow: visible;
   box-sizing: border-box;
-  width: 340px;
-  max-width: calc(100vw - 32px);
+  width: min(340px, calc(100% - 24px));
+  max-width: calc(100% - 24px);
   padding: 10px 12px 12px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
   pointer-events: auto;
-  visibility: visible;
+}
+
+@media (max-width: 480px) {
+  .map-search-panel {
+    top: 8px;
+    right: 8px;
+    width: calc(100% - 16px);
+    max-width: none;
+  }
 }
 
 .map-search-label {
@@ -48,6 +59,9 @@
   display: flex;
   gap: 8px;
   align-items: stretch;
+  overflow: visible;
+  position: relative;
+  z-index: 101;
 }
 
 .map-search-row .pac-target-input,
@@ -97,11 +111,11 @@
 }
 
 .pac-container {
-  z-index: 2147483647 !important;
+  z-index: 100000 !important;
   font-family: Lato, "Helvetica Neue", Arial, Helvetica, sans-serif !important;
   border-radius: 0.28571429rem;
-  margin-top: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+  margin-top: 2px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
 }
 
 .masthead.segment {

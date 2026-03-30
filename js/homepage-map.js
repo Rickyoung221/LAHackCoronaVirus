@@ -60,6 +60,31 @@
     };
   }
 
+  function distanceMatrixErrorMessage(status) {
+    if (status === 'REQUEST_DENIED') {
+      return (
+        '<div class="header">Distance request denied</div>' +
+        '<p>Google returned <code>REQUEST_DENIED</code>. The distance table needs the <strong>Distance Matrix API</strong> enabled on the <em>same</em> key as Maps.</p>' +
+        '<ul style="margin:0.35em 0 0 1.1em;text-align:left;max-width:42em;margin-left:auto;margin-right:auto">' +
+        '<li>Google Cloud Console → <strong>APIs &amp; Services</strong> → <strong>Library</strong> → enable <strong>Distance Matrix API</strong></li>' +
+        '<li>Billing must be enabled for the project</li>' +
+        '<li>If the key uses <strong>HTTP referrer</strong> restrictions, add your domain (e.g. <code>https://your-site.vercel.app/*</code> and <code>http://localhost:*/*</code> for dev)</li>' +
+        '</ul>' +
+        '<p style="margin-top:0.75em;font-size:12px">' +
+        'Docs: <a href="https://developers.google.com/maps/documentation/javascript/distance-matrix" target="_blank" rel="noopener noreferrer">Distance Matrix Service</a> · ' +
+        '<a href="https://developers.google.com/maps/documentation/javascript/examples/distance-matrix" target="_blank" rel="noopener noreferrer">Official sample</a>' +
+        '</p>'
+      );
+    }
+    if (status === 'OVER_QUERY_LIMIT') {
+      return (
+        '<div class="header">Distance quota exceeded</div>' +
+        '<p><code>OVER_QUERY_LIMIT</code> — check billing and quotas in Google Cloud Console.</p>'
+      );
+    }
+    return '<div class="header">Distance request failed</div><p>' + String(status) + '</p>';
+  }
+
   function appendSortedDistanceRows(outputDiv, destNames, destinationList, results) {
     var disSorted = [];
     var j;
@@ -307,11 +332,13 @@
         '<tr><td colspan="4"><div class="ui active centered inline loader"></div> ' +
         '<span class="ui text">Calculating driving distances…</span></td></tr>';
 
+      // Same DistanceMatrixService as the official sample:
+      // https://developers.google.com/maps/documentation/javascript/examples/distance-matrix
       new google.maps.DistanceMatrixService().getDistanceMatrix(
         {
           origins: [origin],
           destinations: destinations,
-          travelMode: 'DRIVING',
+          travelMode: google.maps.TravelMode.DRIVING,
           unitSystem: google.maps.UnitSystem.METRIC,
           avoidHighways: false,
           avoidTolls: false,
@@ -319,10 +346,9 @@
         function (response, status) {
           if (status !== 'OK') {
             outputDiv.innerHTML =
-              '<tr><td colspan="4"><div class="ui negative message" style="margin:0">' +
-              '<div class="header">Distance request failed</div><p>' +
-              status +
-              '</p></div></td></tr>';
+              '<tr><td colspan="4"><div class="ui negative message" style="margin:0;text-align:center">' +
+              distanceMatrixErrorMessage(status) +
+              '</div></td></tr>';
             return;
           }
           outputDiv.innerHTML = '';
@@ -340,19 +366,18 @@
       var input = document.getElementById('pac-input');
       if (!input) return;
 
-      var searchBox = new google.maps.places.SearchBox(input);
-      map.addListener('bounds_changed', function () {
-        searchBox.setBounds(map.getBounds());
+      var autocomplete = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: 'us' },
       });
+      autocomplete.bindTo('bounds', map);
 
-      searchBox.addListener('places_changed', function () {
-        var places = searchBox.getPlaces();
-        if (!places.length) return;
-        var p = places[0];
+      autocomplete.addListener('place_changed', function () {
+        var p = autocomplete.getPlace();
         if (!p.geometry || !p.geometry.location) return;
+        var title = p.name || p.formatted_address || 'Selected place';
         handleSearchOrigin(
           p.geometry.location,
-          p.name,
+          title,
           p.geometry.viewport,
           { url: p.icon || null }
         );
@@ -382,12 +407,6 @@
 
       var btn = document.getElementById('pac-search-btn');
       if (btn) btn.addEventListener('click', runGeocodedSearch);
-      input.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          runGeocodedSearch();
-        }
-      });
     }
 
     loadMarkets();

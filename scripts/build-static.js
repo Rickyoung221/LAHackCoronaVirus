@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copies the site into dist/ and injects GOOGLE_MAP_PLATFORM into HTML placeholders.
+ * Writes dist/index.html from Homepage.htm so static hosts (Vercel default / → index.html) serve LA Markets.
  * Vercel: set env GOOGLE_MAP_PLATFORM in project settings.
  * Local: create .env.local with GOOGLE_MAP_PLATFORM=your_key (not committed).
  */
@@ -104,6 +105,16 @@ function walkHtmlFiles(dir, out) {
   }
 }
 
+function emitHomepageAsIndex(stagingDir) {
+  const home = path.join(stagingDir, 'Homepage.htm');
+  const idx = path.join(stagingDir, 'index.html');
+  if (!fs.existsSync(home)) {
+    console.warn('build-static: Homepage.htm not found; dist/index.html left as copied file.');
+    return;
+  }
+  fs.copyFileSync(home, idx);
+}
+
 function injectKey(dir, apiKey) {
   const files = [];
   walkHtmlFiles(dir, files);
@@ -129,6 +140,7 @@ if (!apiKey) {
 
 removeDirAll(DIST_STAGING);
 copyDir(ROOT, DIST_STAGING);
+emitHomepageAsIndex(DIST_STAGING);
 const n = injectKey(DIST_STAGING, apiKey);
 removeDirAll(DIST);
 fs.renameSync(DIST_STAGING, DIST);
