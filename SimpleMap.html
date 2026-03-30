@@ -3,6 +3,7 @@
 <head>
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
     <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <title>Using MySQL and PHP with Google Maps</title>
     <style>
         /* Always set the map height explicitly to define the size of the div
@@ -36,9 +37,11 @@
 
         // Change this depending on the name of your PHP or XML file
         downloadUrl('https://data.lacity.org/api/views/g986-7yf9/rows.xml?accessType=DOWNLOAD', function (data) {
-            var xml = data.responseXML;
+            var xml = lacityParseSocrataXmlFromXhr(data);
+            if (!xml) return;
             var rows = xml.documentElement.getElementsByTagName('row');
             Array.prototype.forEach.call(rows, function (markerElem) {
+                    if (!lacityIsLeafMarketRow(markerElem)) return;
                     var name = markerElem.getElementsByTagName("dba_name")[0].childNodes[0].data;
                     var address = markerElem.getElementsByTagName("street_address")[0].childNodes[0].data;
                     var loc = lacityParseLocation1(markerElem.getElementsByTagName("location_1")[0]);

@@ -1,10 +1,9 @@
 /**
  * index.html map + COVID CSV / GeoJSON (no inline script — CSP-friendly).
+ * Classic google.maps.Marker (no mapId) for compatibility with any Maps JS key.
  */
 (function () {
   'use strict';
-
-  var MAP_ID = 'DEMO_MAP_ID';
 
   var contentString =
     '<div id="content">' +
@@ -20,21 +19,17 @@
   var markers = [];
   /** GeoJSON click popup; assigned in cityboundries() */
   var infoWindow;
-  var AdvancedMarkerElementCtor;
 
-  async function initMap() {
-    var markerLib = await google.maps.importLibrary('marker');
-    AdvancedMarkerElementCtor = markerLib.AdvancedMarkerElement;
-
+  function initMap() {
     map = new google.maps.Map(document.getElementById('map'), {
       zoom: 11,
-      mapId: MAP_ID,
+      mapTypeId: 'roadmap',
     });
     var geocoder = new google.maps.Geocoder();
     geocoder.geocode({ address: 'Los Angeles' }, function (results, status) {
       if (status === 'OK') {
         map.setCenter(results[0].geometry.location);
-        var marker = new AdvancedMarkerElementCtor({
+        var marker = new google.maps.Marker({
           map: map,
           position: results[0].geometry.location,
         });
@@ -42,7 +37,7 @@
         var laMarkerInfo = new google.maps.InfoWindow({
           content: contentString,
         });
-        marker.addListener('gmp-click', function () {
+        marker.addListener('click', function () {
           laMarkerInfo.open(map, marker);
         });
       } else {
@@ -59,7 +54,7 @@
 
   function setMapOnAll(m) {
     for (var i = 0; i < markers.length; i++) {
-      markers[i].map = m;
+      markers[i].setMap(m);
     }
   }
 
@@ -81,7 +76,7 @@
     geocoder.geocode({ address: address }, function (results, status) {
       if (status === 'OK') {
         resultsMap.setCenter(results[0].geometry.location);
-        var marker = new AdvancedMarkerElementCtor({
+        var marker = new google.maps.Marker({
           map: resultsMap,
           position: results[0].geometry.location,
         });

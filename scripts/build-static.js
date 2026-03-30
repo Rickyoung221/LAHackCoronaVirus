@@ -6,10 +6,42 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
+/** Staging folder so we are not half-deleting dist while another process (e.g. browser-sync) reads it. */
+const DIST_STAGING = path.join(ROOT, '.dist-staging');
 const PLACEHOLDER = '__GOOGLE_MAPS_API_KEY__';
+
+function sleepSync(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {}
+}
+
+/**
+ * fs.rmSync(recursive) can throw ENOTEMPTY on macOS with deep trees or concurrent readers; fall back to rm -rf.
+ */
+function removeDirAll(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      const retry = err && (err.code === 'ENOTEMPTY' || err.code === 'EBUSY' || err.code === 'EPERM');
+      if (retry && attempt < 2) {
+        sleepSync(80);
+        continue;
+      }
+      if (process.platform !== 'win32' && (err.code === 'ENOTEMPTY' || err.code === 'EBUSY' || err.code === 'EPERM')) {
+        execFileSync('rm', ['-rf', dir], { stdio: 'inherit', cwd: ROOT });
+        return;
+      }
+      throw err;
+    }
+  }
+}
 
 function loadEnvLocal() {
   for (const name of ['.env.local', '.env']) {
@@ -34,7 +66,9 @@ function loadEnvLocal() {
 function shouldCopy(rel) {
   if (!rel) return true;
   const n = rel.split(path.sep)[0];
-  if (n === 'node_modules' || n === 'dist' || n === '.git' || n === 'scripts') return false;
+  if (n === 'node_modules' || n === 'dist' || n === '.dist-staging' || n === '.git' || n === 'scripts') {
+    return false;
+  }
   if (n === '.env.local' || n === '.env') return false;
   const base = path.basename(rel);
   if (['package.json', 'package-lock.json', 'vercel.json', '.env.example', '.gitignore'].includes(base)) {
@@ -93,7 +127,9 @@ if (!apiKey) {
   process.exit(1);
 }
 
-fs.rmSync(DIST, { recursive: true, force: true });
-copyDir(ROOT, DIST);
-const n = injectKey(DIST, apiKey);
+removeDirAll(DIST_STAGING);
+copyDir(ROOT, DIST_STAGING);
+const n = injectKey(DIST_STAGING, apiKey);
+removeDirAll(DIST);
+fs.renameSync(DIST_STAGING, DIST);
 console.log('build-static: wrote dist/ and injected Maps key into', n, 'HTML file(s).');

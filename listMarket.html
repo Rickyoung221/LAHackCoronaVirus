@@ -3,6 +3,7 @@
   <head>
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
     <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <title>Using MySQL and PHP with Google Maps</title>
     <style>
       #map {
@@ -36,11 +37,12 @@
 
         // Change this depending on the name of your PHP or XML file
         downloadUrl('https://data.lacity.org/api/views/g986-7yf9/rows.xml?accessType=DOWNLOAD', function(data) {
-            var xml = data.responseXML;
+            var xml = lacityParseSocrataXmlFromXhr(data);
+            if (!xml) return;
             var rows = xml.getElementsByTagName("row");
             var count = 0;
             Array.prototype.forEach.call(rows, function(row) {
-                if (row.children.length < 100 && count < 100) {
+                if (lacityIsLeafMarketRow(row) && count < 100) {
                     if (row.getElementsByTagName("dba_name")[0] === undefined)
                         var name = row.getElementsByTagName("business_name")[0].childNodes[0].data; 
                     else

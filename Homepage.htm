@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>Covid-Safe Shopping</title>
+  <meta name="description" content="Los Angeles certified retail food markets on a map: search your address and see driving distance to nearby markets (L.A. open data).">
+  <title>LA Markets Near You</title>
   <link rel="stylesheet" href="./Semantic-UI-CSS-master/semantic.css">
   <link rel="stylesheet" href="./css/homepage.css">
   <script src="./Semantic-UI-CSS-master/jquery.min.js"></script>
@@ -13,8 +15,8 @@
 
   <div class="ui inverted vertical masthead center aligned segment">
     <div class="ui text container">
-      <h1 class="ui inverted header">Covid-Safe Shopping</h1>
-      <h2>Safe<img src="heart.png" alt=""> shopping markets on the map</h2>
+      <h1 class="ui inverted header">LA Markets Near You</h1>
+      <h2>Certified retail food markets from <a href="https://data.lacity.org/" style="color:#8ecaff;text-decoration:underline" target="_blank" rel="noopener noreferrer">L.A. open data</a> — driving distance from your address</h2>
       <a class="ui huge primary button" style="color:#fff" href="#mapContent">Get Started</a>
     </div>
   </div>
@@ -25,23 +27,24 @@
       <div class="content">
         Address search
         <div class="sub header">
-          The search box is fixed at the bottom-left of the window. Pick a suggestion or use Enter / Go;
-          the map recenters and the table lists nearby markets by driving distance.
+          Search is fixed at the bottom-left. Pick a Places suggestion or type an address and press Enter / Go.
+          The map recenters and the table ranks up to 25 markets by driving distance (Google Distance Matrix).
         </div>
       </div>
     </h2>
     <div class="map-wrap">
-      <div id="map" role="application" aria-label="Markets map"></div>
+      <div id="map" role="application" aria-label="Los Angeles retail food markets map"></div>
     </div>
+    <p id="market-load-status" class="ui small meta" style="text-align:center;margin-top:0.75rem" aria-live="polite">Loading market list…</p>
   </div>
 
-  <div class="ui horizontal divider" style="padding-top:3em">Recommended markets</div>
+  <div class="ui horizontal divider" style="padding-top:3em">Markets by driving distance</div>
 
   <div class="ui container center aligned">
     <table class="ui celled table">
       <thead>
         <tr>
-          <th class="single line">Rating</th>
+          <th class="single line">Rank</th>
           <th>Market Name</th>
           <th>Distance</th>
           <th>Address</th>

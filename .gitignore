@@ -1,4 +1,5 @@
 dist/
+.dist-staging/
 .env
 .env.local
 node_modules/

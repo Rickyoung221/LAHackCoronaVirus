@@ -1,6 +1,10 @@
 /**
- * Homepage map: LA markets (Socrata XML), neighborhood GeoJSON, Places SearchBox + Geocoder.
- * Exposes window.initAutocomplete for the Google Maps script callback.
+ * Homepage map: L.A. certified retail markets (Socrata XML), optional neighborhood context layer,
+ * Places SearchBox + Geocoder, driving-distance table. window.initAutocomplete = Maps callback.
+ *
+ * Market pins use classic google.maps.Marker (no mapId) so markers show with any valid Maps JS key.
+ * Flow: map loads → loadMarkets() XHRs XML → up to MAX_MARKET_PINS markers appear without searching.
+ * Search only adds an origin pin + distance table.
  */
 (function (global) {
   'use strict';
@@ -11,8 +15,6 @@
     'https://data.lacity.org/api/views/g986-7yf9/rows.xml?accessType=DOWNLOAD';
   var MAX_MARKET_PINS = 400;
   var DIST_MATRIX_DEST_CAP = 25;
-  /** Required for AdvancedMarkerElement; create your own in Google Cloud → Map Management for production. */
-  var MAP_ID = 'DEMO_MAP_ID';
 
   function downloadUrl(url, callback) {
     var xhr = new XMLHttpRequest();
@@ -38,15 +40,24 @@
   function marketRowName(row) {
     var dba = row.getElementsByTagName('dba_name')[0];
     if (dba && dba.childNodes[0]) return dba.childNodes[0].data;
-    return row.getElementsByTagName('business_name')[0].childNodes[0].data;
+    var bn = row.getElementsByTagName('business_name')[0];
+    if (bn && bn.childNodes[0]) return bn.childNodes[0].data;
+    return 'Market';
   }
 
   function marketRowStreet(row) {
-    return row.getElementsByTagName('street_address')[0].childNodes[0].data;
+    var s = row.getElementsByTagName('street_address')[0];
+    return s && s.childNodes[0] ? s.childNodes[0].data : '';
   }
 
-  function placeIconUrl(place) {
-    return place && place.icon ? place.icon : null;
+  function placeIconSpec(iconUrl) {
+    if (!iconUrl) return null;
+    return {
+      url: iconUrl,
+      scaledSize: new google.maps.Size(25, 25),
+      origin: new google.maps.Point(0, 0),
+      anchor: new google.maps.Point(12, 25),
+    };
   }
 
   function appendSortedDistanceRows(outputDiv, destNames, destinationList, results) {
@@ -91,16 +102,11 @@
     outputDiv.innerHTML += html;
   }
 
-  async function initAutocomplete() {
-    var markerLib = await google.maps.importLibrary('marker');
-    var AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
-    var PinElement = markerLib.PinElement;
-
+  function initAutocomplete() {
     var map = new google.maps.Map(document.getElementById('map'), {
       center: LA_CENTER,
       zoom: DEFAULT_ZOOM,
       mapTypeId: 'roadmap',
-      mapId: MAP_ID,
     });
 
     var marketInfoWindow = new google.maps.InfoWindow();
@@ -110,51 +116,105 @@
     var marketsReady = false;
     var searchMarkers = [];
 
+    function setMarketLoadStatus(msg) {
+      var el = document.getElementById('market-load-status');
+      if (el) el.textContent = msg;
+    }
+
     function loadMarkets() {
-      downloadUrl(MARKETS_XML, function (req) {
-        var xml = req.responseXML;
-        if (!xml) return;
-        rows = xml.getElementsByTagName('row');
+      if (typeof fetch !== 'function') {
+        downloadUrl(MARKETS_XML, function (req) {
+          if (req.status !== 200 && req.status !== 0) {
+            marketsReady = true;
+            setMarketLoadStatus('Market list request failed (HTTP ' + req.status + ').');
+            return;
+          }
+          var xml = lacityParseSocrataXmlFromXhr(req);
+          applyMarketsFromXmlDoc(xml);
+        });
+        return;
+      }
+
+      fetch(MARKETS_XML, { mode: 'cors', credentials: 'omit' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.text();
+        })
+        .then(function (text) {
+          var doc = new DOMParser().parseFromString(text, 'application/xml');
+          if (doc.getElementsByTagName('parsererror').length) {
+            throw new Error('Invalid XML');
+          }
+          applyMarketsFromXmlDoc(doc);
+        })
+        .catch(function (err) {
+          marketsReady = true;
+          rows = rows || [];
+          var hint = '';
+          if (typeof location !== 'undefined' && location.protocol === 'file:') {
+            hint =
+              ' Cannot load from file:// — use a local server (e.g. npm run dev) or open the built site over http/https.';
+          }
+          setMarketLoadStatus('Could not load market data from data.lacity.org.' + hint + ' (' + (err && err.message) + ')');
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('loadMarkets:', err);
+          }
+        });
+    }
+
+    function applyMarketsFromXmlDoc(xml) {
+      if (!xml) {
         marketsReady = true;
+        setMarketLoadStatus('Could not parse market XML (empty response).');
+        return;
+      }
+      rows = xml.getElementsByTagName('row');
 
-        var count = 0;
-        Array.prototype.forEach.call(rows, function (row) {
-          if (row.children.length >= 100 || count >= MAX_MARKET_PINS) return;
-          var loc = lacityParseLocation1(row.getElementsByTagName('location_1')[0]);
-          if (!loc) return;
+      var count = 0;
+      Array.prototype.forEach.call(rows, function (row) {
+        if (!lacityIsLeafMarketRow(row) || count >= MAX_MARKET_PINS) return;
+        var loc = lacityParseLocation1(row.getElementsByTagName('location_1')[0]);
+        if (!loc) return;
 
-          var name = marketRowName(row);
-          var street = marketRowStreet(row);
-          var point = new google.maps.LatLng(loc.lat, loc.lng);
+        var name = marketRowName(row);
+        var street = marketRowStreet(row);
+        var point = new google.maps.LatLng(loc.lat, loc.lng);
 
-          var body = document.createElement('div');
-          var strong = document.createElement('strong');
-          strong.textContent = name;
-          body.appendChild(strong);
-          body.appendChild(document.createElement('br'));
-          var line = document.createElement('span');
-          line.textContent = street;
-          body.appendChild(line);
+        var body = document.createElement('div');
+        var strong = document.createElement('strong');
+        strong.textContent = name;
+        body.appendChild(strong);
+        body.appendChild(document.createElement('br'));
+        var line = document.createElement('span');
+        line.textContent = street;
+        body.appendChild(line);
 
-          var pin = new PinElement({
-            background: '#1a73e8',
-            borderColor: '#174ea6',
-            glyph: 'M',
-            glyphColor: 'white',
-          });
-          var marker = new AdvancedMarkerElement({
+        try {
+          var marker = new google.maps.Marker({
             map: map,
             position: point,
-            content: pin.element,
+            label: 'M',
             title: name,
+            optimized: false,
           });
-          marker.addListener('gmp-click', function () {
+          marker.addListener('click', function () {
             marketInfoWindow.setContent(body);
             marketInfoWindow.open(map, marker);
           });
           count++;
-        });
+        } catch (e) {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('Marker failed', name, e);
+          }
+        }
       });
+
+      marketsReady = true;
+      setMarketLoadStatus(
+        count > 0
+          ? 'Showing ' + count + ' markets on the map (max ' + MAX_MARKET_PINS + ').'
+          : 'No market pins: check console / network, or open over http(s) not file://.'
+      );
     }
 
     function loadNeighborhoodLayer() {
@@ -163,10 +223,10 @@
       layer.setStyle(function (feature) {
         return {
           fillColor: coliFillColor(feature.getProperty('COLI')),
-          fillOpacity: 0.6,
+          fillOpacity: 0.22,
           strokeColor: '#b3b3b3',
           strokeWeight: 1,
-          zIndex: 1,
+          zIndex: 0,
         };
       });
       layer.addListener('mouseover', function (e) {
@@ -180,12 +240,18 @@
         layer.revertStyle();
       });
       layer.addListener('click', function (e) {
+        var hoodName = e.feature.getProperty('name') || '—';
+        var coli = e.feature.getProperty('COLI');
         hoodInfoWindow.setContent(
-          '<div style="line-height:1;overflow:hidden;white-space:nowrap">' +
-            e.feature.getProperty('name') +
-            '<br> COVID-19 confirmed: ' +
-            e.feature.getProperty('COLI') +
-            '</div>'
+          '<div style="line-height:1.35;max-width:280px;white-space:normal">' +
+            '<strong>' +
+            hoodName +
+            '</strong><br>' +
+            '<span style="font-size:12px;color:#444">Neighborhood council boundary (City of L.A.). ' +
+            'Field <code>COLI</code> in this GeoJSON is a legacy dataset value — not live public-health data.</span><br>' +
+            '<span style="font-size:12px">COLI: ' +
+            (coli !== undefined && coli !== null ? String(coli) : '—') +
+            '</span></div>'
         );
         var anchor = new google.maps.MVCObject();
         anchor.set('position', e.latLng);
@@ -201,33 +267,19 @@
       }
 
       searchMarkers.forEach(function (m) {
-        m.map = null;
+        m.setMap(null);
       });
       searchMarkers = [];
 
-      var contentEl = null;
-      var iconUrl = iconSpec && iconSpec.url ? iconSpec.url : null;
-      if (iconUrl) {
-        contentEl = document.createElement('img');
-        contentEl.src = iconUrl;
-        contentEl.alt = '';
-        contentEl.width = 25;
-        contentEl.height = 25;
-      } else {
-        contentEl = new PinElement({
-          background: '#db4437',
-          borderColor: '#c5221f',
-          glyphColor: '#fff',
-        }).element;
-      }
-      searchMarkers.push(
-        new AdvancedMarkerElement({
-          map: map,
-          position: latLng,
-          content: contentEl,
-          title: title || 'Selected place',
-        })
-      );
+      var markerOpts = {
+        map: map,
+        position: latLng,
+        title: title || 'Selected place',
+        animation: google.maps.Animation.DROP,
+      };
+      var spec = iconSpec && iconSpec.url ? placeIconSpec(iconSpec.url) : null;
+      if (spec) markerOpts.icon = spec;
+      searchMarkers.push(new google.maps.Marker(markerOpts));
 
       if (viewport) {
         map.fitBounds(viewport);
@@ -242,6 +294,7 @@
       var n = 0;
       Array.prototype.forEach.call(rows, function (row) {
         if (n >= DIST_MATRIX_DEST_CAP) return;
+        if (!lacityIsLeafMarketRow(row)) return;
         var loc = lacityParseLocation1(row.getElementsByTagName('location_1')[0]);
         if (!loc) return;
         destinations.push({ lat: loc.lat, lng: loc.lng });
@@ -301,7 +354,7 @@
           p.geometry.location,
           p.name,
           p.geometry.viewport,
-          { url: placeIconUrl(p) }
+          { url: p.icon || null }
         );
       });
 

@@ -3,6 +3,7 @@
   <head>
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
     <meta charset="utf-8">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <title>Places Search Box</title>
     <link rel="stylesheet" type="text/css" href="./Semantic-UI-CSS-master/semantic.css">
     <style>
@@ -20,9 +21,9 @@
     <div style="height: 100%;" class="ui inverted vertical masthead center aligned segment">
       <div class="ui text container">
         <h1 class="ui inverted header">
-          Safe Shopping
+          LA Markets Near You
         </h1>
-        <h2>Safe shopping markets on the map</h2>
+        <h2>Retail food markets and driving distance from your address</h2>
         <a class="ui huge primary button" style="color: #fff;" href="#map">Get Started</a>
       </div>
     </div>
@@ -67,11 +68,12 @@
         var rows;
         // Change this depending on the name of your PHP or XML file
         downloadUrl('https://data.lacity.org/api/views/g986-7yf9/rows.xml?accessType=DOWNLOAD', function(data) {
-            var xml = data.responseXML;
+            var xml = lacityParseSocrataXmlFromXhr(data);
+            if (!xml) return;
             rows = xml.getElementsByTagName("row");
             var count = 0;
             Array.prototype.forEach.call(rows, function(row) {
-                if (row.children.length < 100 && count < 400) {
+                if (lacityIsLeafMarketRow(row) && count < 400) {
                     if (row.getElementsByTagName("dba_name")[0] === undefined)
                         var name = row.getElementsByTagName("business_name")[0].childNodes[0].data; 
                     else
