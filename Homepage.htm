@@ -29,7 +29,7 @@
         <div class="sub header">
           Search panel (top-right): type for address and place suggestions (Places Autocomplete, US-biased to the visible map).
           Choose a suggestion with mouse or keyboard, or type a full query and click <strong>Go</strong> to geocode.
-          The map recenters and the table ranks up to 25 markets by driving distance (Google Distance Matrix).
+          The map recenters and the table ranks up to 25 markets by driving distance (Google Routes API route matrix).
         </div>
       </div>
     </h2>
@@ -38,7 +38,7 @@
       <div class="map-search-panel" aria-label="Address search">
         <label class="map-search-label" for="pac-input">Search</label>
         <div class="map-search-row">
-          <input id="pac-input" type="text" placeholder="Address, ZIP, or place…" autocomplete="on" aria-label="Search address">
+          <div id="pac-input-wrap" class="pac-input-wrap"></div>
           <button type="button" id="pac-search-btn">Go</button>
         </div>
         <p class="map-search-hint">Suggestions as you type; Enter selects a highlighted row. Use <strong>Go</strong> to search the exact text without picking a suggestion.</p>

@@ -1,8 +1,9 @@
 /**
  * Homepage map: L.A. certified retail markets (Socrata XML), optional neighborhood context layer,
- * Places SearchBox + Geocoder, driving-distance table. window.initAutocomplete = Maps callback.
+ * PlaceAutocompleteElement (Places API New) + Geocoder, driving-distance table (RouteMatrix). window.initAutocomplete = Maps callback.
  *
- * Market pins use classic google.maps.Marker (no mapId) so markers show with any valid Maps JS key.
+ * Pins use AdvancedMarkerElement + PinElement (requires mapId). Default DEMO_MAP_ID matches other pages in this repo;
+ * for production, create a Map ID in Google Cloud → Map Management and replace MAP_ID below.
  * Flow: map loads → loadMarkets() XHRs XML → up to MAX_MARKET_PINS markers appear without searching.
  * Search only adds an origin pin + distance table.
  */
@@ -15,6 +16,8 @@
     'https://data.lacity.org/api/views/g986-7yf9/rows.xml?accessType=DOWNLOAD';
   var MAX_MARKET_PINS = 400;
   var DIST_MATRIX_DEST_CAP = 25;
+  /** Vector map + advanced markers; replace for production (Map Management in Google Cloud). */
+  var MAP_ID = 'DEMO_MAP_ID';
 
   function downloadUrl(url, callback) {
     var xhr = new XMLHttpRequest();
@@ -50,39 +53,62 @@
     return s && s.childNodes[0] ? s.childNodes[0].data : '';
   }
 
-  function placeIconSpec(iconUrl) {
-    if (!iconUrl) return null;
-    return {
-      url: iconUrl,
-      scaledSize: new google.maps.Size(25, 25),
-      origin: new google.maps.Point(0, 0),
-      anchor: new google.maps.Point(12, 25),
-    };
+  function formatDrivingDistanceMeters(meters) {
+    if (meters == null || !isFinite(meters)) return '—';
+    if (meters < 1000) return Math.round(meters) + ' m';
+    var km = meters / 1000;
+    var rounded = Math.round(km * 10) / 10;
+    return (rounded % 1 === 0 ? String(Math.round(rounded)) : rounded.toFixed(1)) + ' km';
   }
 
-  function distanceMatrixErrorMessage(status) {
-    if (status === 'REQUEST_DENIED') {
+  function routeMatrixFailureHtml(err) {
+    var msg = err && err.message ? String(err.message) : String(err || 'Unknown error');
+    var lower = msg.toLowerCase();
+    if (
+      lower.indexOf('permission') !== -1 ||
+      lower.indexOf('denied') !== -1 ||
+      lower.indexOf('403') !== -1 ||
+      lower.indexOf('api key') !== -1
+    ) {
       return (
-        '<div class="header">Distance request denied</div>' +
-        '<p>Google returned <code>REQUEST_DENIED</code>. The distance table needs the <strong>Distance Matrix API</strong> enabled on the <em>same</em> key as Maps.</p>' +
+        '<div class="header">Driving-distance request denied</div>' +
+        '<p>The table uses <strong>Route Matrix</strong> (<code>RouteMatrix.computeRouteMatrix</code>). Enable the <strong>Routes API</strong> on the <em>same</em> Google Cloud project and API key as Maps.</p>' +
         '<ul style="margin:0.35em 0 0 1.1em;text-align:left;max-width:42em;margin-left:auto;margin-right:auto">' +
-        '<li>Google Cloud Console → <strong>APIs &amp; Services</strong> → <strong>Library</strong> → enable <strong>Distance Matrix API</strong></li>' +
-        '<li>Billing must be enabled for the project</li>' +
-        '<li>If the key uses <strong>HTTP referrer</strong> restrictions, add your domain (e.g. <code>https://your-site.vercel.app/*</code> and <code>http://localhost:*/*</code> for dev)</li>' +
+        '<li>Console → <strong>APIs &amp; Services</strong> → <strong>Library</strong> → enable <strong>Routes API</strong></li>' +
+        '<li>Billing must be enabled</li>' +
+        '<li>If the key uses <strong>HTTP referrer</strong> restrictions, allow your origins (e.g. <code>https://your-site.vercel.app/*</code>, <code>http://localhost:*/*</code>)</li>' +
         '</ul>' +
         '<p style="margin-top:0.75em;font-size:12px">' +
-        'Docs: <a href="https://developers.google.com/maps/documentation/javascript/distance-matrix" target="_blank" rel="noopener noreferrer">Distance Matrix Service</a> · ' +
-        '<a href="https://developers.google.com/maps/documentation/javascript/examples/distance-matrix" target="_blank" rel="noopener noreferrer">Official sample</a>' +
+        'Migration: <a href="https://developers.google.com/maps/documentation/javascript/routes/route-matrix-js-migration" target="_blank" rel="noopener noreferrer">Distance Matrix → Route Matrix</a>' +
         '</p>'
       );
     }
-    if (status === 'OVER_QUERY_LIMIT') {
+    if (lower.indexOf('quota') !== -1 || lower.indexOf('resource_exhausted') !== -1) {
       return (
         '<div class="header">Distance quota exceeded</div>' +
-        '<p><code>OVER_QUERY_LIMIT</code> — check billing and quotas in Google Cloud Console.</p>'
+        '<p>Check billing and quotas in Google Cloud Console.</p>'
       );
     }
-    return '<div class="header">Distance request failed</div><p>' + String(status) + '</p>';
+    return (
+      '<div class="header">Driving-distance request failed</div>' +
+      '<p style="word-break:break-word">' +
+      msg.replace(/</g, '&lt;') +
+      '</p>'
+    );
+  }
+
+  /** Adapts RouteMatrix row items to the shape expected by appendSortedDistanceRows. */
+  function routeMatrixItemsAsLegacyElements(items) {
+    if (!items || !items.length) return [];
+    return items.map(function (item) {
+      if (!item || item.error != null) return {};
+      if (item.condition && item.condition !== 'ROUTE_EXISTS') return {};
+      if (item.distanceMeters == null) return {};
+      var m = item.distanceMeters;
+      var loc = item.localizedValues && item.localizedValues.distance;
+      var text = loc && loc.text ? loc.text : formatDrivingDistanceMeters(m);
+      return { distance: { value: m, text: text } };
+    });
   }
 
   function appendSortedDistanceRows(outputDiv, destNames, destinationList, results) {
@@ -128,10 +154,16 @@
   }
 
   function initAutocomplete() {
+    var markerLibPromise =
+      typeof google.maps.importLibrary === 'function'
+        ? google.maps.importLibrary('marker')
+        : Promise.reject(new Error('importLibrary not available'));
+
     var map = new google.maps.Map(document.getElementById('map'), {
       center: LA_CENTER,
       zoom: DEFAULT_ZOOM,
       mapTypeId: 'roadmap',
+      mapId: MAP_ID,
     });
 
     var marketInfoWindow = new google.maps.InfoWindow();
@@ -195,51 +227,72 @@
       }
       rows = xml.getElementsByTagName('row');
 
-      var count = 0;
-      Array.prototype.forEach.call(rows, function (row) {
-        if (!lacityIsLeafMarketRow(row) || count >= MAX_MARKET_PINS) return;
-        var loc = lacityParseLocation1(row.getElementsByTagName('location_1')[0]);
-        if (!loc) return;
-
-        var name = marketRowName(row);
-        var street = marketRowStreet(row);
-        var point = new google.maps.LatLng(loc.lat, loc.lng);
-
-        var body = document.createElement('div');
-        var strong = document.createElement('strong');
-        strong.textContent = name;
-        body.appendChild(strong);
-        body.appendChild(document.createElement('br'));
-        var line = document.createElement('span');
-        line.textContent = street;
-        body.appendChild(line);
-
-        try {
-          var marker = new google.maps.Marker({
-            map: map,
-            position: point,
-            label: 'M',
-            title: name,
-            optimized: false,
-          });
-          marker.addListener('click', function () {
-            marketInfoWindow.setContent(body);
-            marketInfoWindow.open(map, marker);
-          });
-          count++;
-        } catch (e) {
-          if (typeof console !== 'undefined' && console.warn) {
-            console.warn('Marker failed', name, e);
+      markerLibPromise
+        .then(function (lib) {
+          var AdvancedMarkerElement = lib.AdvancedMarkerElement;
+          var PinElement = lib.PinElement;
+          if (!AdvancedMarkerElement || !PinElement) {
+            throw new Error('AdvancedMarkerElement/PinElement missing');
           }
-        }
-      });
 
-      marketsReady = true;
-      setMarketLoadStatus(
-        count > 0
-          ? 'Showing ' + count + ' markets on the map (max ' + MAX_MARKET_PINS + ').'
-          : 'No market pins: check console / network, or open over http(s) not file://.'
-      );
+          var count = 0;
+          Array.prototype.forEach.call(rows, function (row) {
+            if (!lacityIsLeafMarketRow(row) || count >= MAX_MARKET_PINS) return;
+            var loc = lacityParseLocation1(row.getElementsByTagName('location_1')[0]);
+            if (!loc) return;
+
+            var name = marketRowName(row);
+            var street = marketRowStreet(row);
+            var point = { lat: loc.lat, lng: loc.lng };
+
+            var body = document.createElement('div');
+            var strong = document.createElement('strong');
+            strong.textContent = name;
+            body.appendChild(strong);
+            body.appendChild(document.createElement('br'));
+            var line = document.createElement('span');
+            line.textContent = street;
+            body.appendChild(line);
+
+            try {
+              var pin = new PinElement({
+                background: '#EA4335',
+                borderColor: '#C5221F',
+                glyphColor: '#fff',
+                glyphText: 'M',
+              });
+              var marker = new AdvancedMarkerElement({
+                map: map,
+                position: point,
+                title: name,
+                content: pin,
+              });
+              marker.addListener('gmp-click', function () {
+                marketInfoWindow.setContent(body);
+                marketInfoWindow.open({ map: map, anchor: marker });
+              });
+              count++;
+            } catch (e) {
+              if (typeof console !== 'undefined' && console.warn) {
+                console.warn('AdvancedMarker failed', name, e);
+              }
+            }
+          });
+
+          marketsReady = true;
+          setMarketLoadStatus(
+            count > 0
+              ? 'Showing ' + count + ' markets on the map (max ' + MAX_MARKET_PINS + ').'
+              : 'No market pins: check console / network, or open over http(s) not file://.'
+          );
+        })
+        .catch(function (err) {
+          marketsReady = true;
+          setMarketLoadStatus('Could not load advanced map markers. Check console.');
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('marker library:', err);
+          }
+        });
     }
 
     function loadNeighborhoodLayer() {
@@ -285,26 +338,37 @@
       layer.setMap(map);
     }
 
-    function handleSearchOrigin(latLng, title, viewport, iconSpec) {
+    function handleSearchOrigin(latLng, title, viewport) {
       if (!marketsReady || !rows) {
         alert('Market data is still loading. Please wait a few seconds and try again.');
         return;
       }
 
       searchMarkers.forEach(function (m) {
-        m.setMap(null);
+        m.map = null;
       });
       searchMarkers = [];
 
-      var markerOpts = {
-        map: map,
-        position: latLng,
-        title: title || 'Selected place',
-        animation: google.maps.Animation.DROP,
-      };
-      var spec = iconSpec && iconSpec.url ? placeIconSpec(iconSpec.url) : null;
-      if (spec) markerOpts.icon = spec;
-      searchMarkers.push(new google.maps.Marker(markerOpts));
+      markerLibPromise
+        .then(function (lib) {
+          var AdvancedMarkerElement = lib.AdvancedMarkerElement;
+          var PinElement = lib.PinElement;
+          if (!AdvancedMarkerElement || !PinElement) return;
+          var pin = new PinElement({
+            background: '#1a73e8',
+            borderColor: '#1557b0',
+            glyphColor: '#fff',
+          });
+          searchMarkers.push(
+            new AdvancedMarkerElement({
+              map: map,
+              position: latLng,
+              title: title || 'Selected place',
+              content: pin,
+            })
+          );
+        })
+        .catch(function () {});
 
       if (viewport) {
         map.fitBounds(viewport);
@@ -316,6 +380,7 @@
       var origin = latLng.toJSON();
       var destinations = [];
       var destNames = [];
+      var destAddresses = [];
       var n = 0;
       Array.prototype.forEach.call(rows, function (row) {
         if (n >= DIST_MATRIX_DEST_CAP) return;
@@ -324,6 +389,7 @@
         if (!loc) return;
         destinations.push({ lat: loc.lat, lng: loc.lng });
         destNames.push(marketRowName(row));
+        destAddresses.push(marketRowStreet(row) || '');
         n++;
       });
 
@@ -332,81 +398,165 @@
         '<tr><td colspan="4"><div class="ui active centered inline loader"></div> ' +
         '<span class="ui text">Calculating driving distances…</span></td></tr>';
 
-      // Same DistanceMatrixService as the official sample:
-      // https://developers.google.com/maps/documentation/javascript/examples/distance-matrix
-      new google.maps.DistanceMatrixService().getDistanceMatrix(
-        {
-          origins: [origin],
-          destinations: destinations,
-          travelMode: google.maps.TravelMode.DRIVING,
-          unitSystem: google.maps.UnitSystem.METRIC,
-          avoidHighways: false,
-          avoidTolls: false,
-        },
-        function (response, status) {
-          if (status !== 'OK') {
-            outputDiv.innerHTML =
-              '<tr><td colspan="4"><div class="ui negative message" style="margin:0;text-align:center">' +
-              distanceMatrixErrorMessage(status) +
-              '</div></td></tr>';
-            return;
+      if (!destinations.length) {
+        outputDiv.innerHTML =
+          '<tr><td colspan="4"><div class="ui warning message" style="margin:0;text-align:center">' +
+          'No market locations in range to compare. Try again after the map finishes loading.' +
+          '</div></td></tr>';
+        return;
+      }
+
+      if (typeof google.maps.importLibrary !== 'function') {
+        outputDiv.innerHTML =
+          '<tr><td colspan="4"><div class="ui negative message" style="margin:0;text-align:center">' +
+          '<p>Route Matrix requires a current Maps JavaScript API loader (<code>importLibrary</code>).</p>' +
+          '</div></td></tr>';
+        return;
+      }
+
+      google.maps
+        .importLibrary('routes')
+        .then(function (routesLib) {
+          var RouteMatrix = routesLib.RouteMatrix;
+          if (!RouteMatrix || typeof RouteMatrix.computeRouteMatrix !== 'function') {
+            throw new Error('RouteMatrix.computeRouteMatrix is not available');
+          }
+          var units =
+            google.maps.UnitSystem != null
+              ? google.maps.UnitSystem.METRIC
+              : 'METRIC';
+          return RouteMatrix.computeRouteMatrix({
+            origins: [origin],
+            destinations: destinations,
+            travelMode: 'DRIVING',
+            routingPreference: 'TRAFFIC_UNAWARE',
+            units: units,
+            fields: ['distanceMeters', 'localizedValues', 'condition'],
+          });
+        })
+        .then(function (result) {
+          var matrix = result && result.matrix != null ? result.matrix : result;
+          var row0 = matrix && matrix.rows && matrix.rows[0];
+          var items = row0 && row0.items;
+          if (!items || !items.length) {
+            throw new Error('Empty route matrix response');
           }
           outputDiv.innerHTML = '';
           appendSortedDistanceRows(
             outputDiv,
             destNames,
-            response.destinationAddresses,
-            response.rows[0].elements
+            destAddresses,
+            routeMatrixItemsAsLegacyElements(items)
           );
-        }
-      );
+        })
+        .catch(function (err) {
+          outputDiv.innerHTML =
+            '<tr><td colspan="4"><div class="ui negative message" style="margin:0;text-align:center">' +
+            routeMatrixFailureHtml(err) +
+            '</div></td></tr>';
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('RouteMatrix.computeRouteMatrix:', err);
+          }
+        });
+    }
+
+    function placeLocationToLatLng(loc) {
+      if (!loc) return null;
+      if (typeof loc.lat === 'function') return loc;
+      var lat = loc.lat;
+      var lng = loc.lng;
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        return new google.maps.LatLng(lat, lng);
+      }
+      return null;
     }
 
     function bindSearchUi() {
-      var input = document.getElementById('pac-input');
-      if (!input) return;
+      var wrap = document.getElementById('pac-input-wrap');
+      if (!wrap) return;
 
-      var autocomplete = new google.maps.places.Autocomplete(input, {
-        componentRestrictions: { country: 'us' },
-      });
-      autocomplete.bindTo('bounds', map);
-
-      autocomplete.addListener('place_changed', function () {
-        var p = autocomplete.getPlace();
-        if (!p.geometry || !p.geometry.location) return;
-        var title = p.name || p.formatted_address || 'Selected place';
-        handleSearchOrigin(
-          p.geometry.location,
-          title,
-          p.geometry.viewport,
-          { url: p.icon || null }
-        );
-      });
-
-      var geocoder = new google.maps.Geocoder();
-      function runGeocodedSearch() {
-        var q = input.value.trim();
-        if (!q) return;
-        geocoder.geocode(
-          { address: q, bounds: map.getBounds(), region: 'US' },
-          function (results, status) {
-            if (status !== 'OK' || !results[0]) {
-              alert('Could not find that place. Try a more specific address.');
-              return;
+      var attachGeocodeAndGo = function (pac) {
+        var geocoder = new google.maps.Geocoder();
+        function runGeocodedSearch() {
+          var q = (pac.value != null ? String(pac.value) : '').trim();
+          if (!q) return;
+          geocoder.geocode(
+            { address: q, bounds: map.getBounds(), region: 'US' },
+            function (results, status) {
+              if (status !== 'OK' || !results[0]) {
+                alert('Could not find that place. Try a more specific address.');
+                return;
+              }
+              var r = results[0];
+              handleSearchOrigin(r.geometry.location, r.formatted_address, r.geometry.viewport);
             }
-            var r = results[0];
-            handleSearchOrigin(
-              r.geometry.location,
-              r.formatted_address,
-              r.geometry.viewport,
-              null
-            );
-          }
-        );
-      }
+          );
+        }
 
-      var btn = document.getElementById('pac-search-btn');
-      if (btn) btn.addEventListener('click', runGeocodedSearch);
+        var btn = document.getElementById('pac-search-btn');
+        if (btn) btn.addEventListener('click', runGeocodedSearch);
+      };
+
+      var libPromise =
+        typeof google.maps.importLibrary === 'function'
+          ? google.maps.importLibrary('places')
+          : Promise.resolve(google.maps.places || {});
+
+      libPromise
+        .then(function (placesLib) {
+          var Ctor = placesLib.PlaceAutocompleteElement || google.maps.places.PlaceAutocompleteElement;
+          if (!Ctor) {
+            if (typeof console !== 'undefined' && console.warn) {
+              console.warn(
+                'PlaceAutocompleteElement not available. In Google Cloud enable Places API (New) for this key.'
+              );
+            }
+            return;
+          }
+
+          var pac = new Ctor({
+            requestedRegion: 'us',
+            placeholder: 'Address, ZIP, or place…',
+          });
+          pac.id = 'pac-input';
+          wrap.appendChild(pac);
+
+          function syncLocationBias() {
+            var b = map.getBounds();
+            if (b) pac.locationBias = b;
+          }
+          map.addListener('bounds_changed', syncLocationBias);
+          map.addListener('idle', syncLocationBias);
+          syncLocationBias();
+
+          pac.addEventListener('gmp-select', function (event) {
+            var pred = event.placePrediction;
+            if (!pred) return;
+            var place = pred.toPlace();
+            place
+              .fetchFields({
+                fields: ['displayName', 'formattedAddress', 'location', 'viewport'],
+              })
+              .then(function () {
+                var latLng = placeLocationToLatLng(place.location);
+                if (!latLng) return;
+                var title = place.displayName || place.formattedAddress || 'Selected place';
+                handleSearchOrigin(latLng, title, place.viewport);
+              })
+              .catch(function (err) {
+                if (typeof console !== 'undefined' && console.warn) {
+                  console.warn('Place fetchFields:', err);
+                }
+              });
+          });
+
+          attachGeocodeAndGo(pac);
+        })
+        .catch(function (err) {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('Could not load places library:', err);
+          }
+        });
     }
 
     loadMarkets();
