@@ -1,326 +1,68 @@
 <!DOCTYPE html>
-<!-- saved from url=(0046)https://semantic-ui.com/examples/homepage.html -->
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <!-- Standard Meta -->
-  
+<html lang="en">
+<head>
+  <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-
-  <!-- Site Properties -->
-  <title>Homepage</title>
-  <link rel="stylesheet" type="text/css" href="./Semantic-UI-CSS-master/semantic.css">
-  <style type="text/css">
-    #map {
-      height: 100%;
-    }
-    .masthead.segment {
-      min-height: 700px;
-      padding: 1em 0em;
-    }
-    .masthead h1.ui.header {
-      margin-top: 3em;
-      margin-bottom: 0em;
-      font-size: 4em;
-      font-weight: normal;
-    }
-    .masthead h2 {
-      font-size: 1.7em;
-      font-weight: normal;
-    }
-    .ui.vertical.stripe {
-      padding: 5em 0em;
-    }
-  </style>
-
+  <title>Covid-Safe Shopping</title>
+  <link rel="stylesheet" href="./Semantic-UI-CSS-master/semantic.css">
+  <link rel="stylesheet" href="./css/homepage.css">
   <script src="./Semantic-UI-CSS-master/jquery.min.js"></script>
-  <script data-require="angular.js@1.3.x" src="https://code.angularjs.org/1.3.16/angular.js" data-semver="1.3.16"></script>
-  <script>
-  $(function() {
-    $('a[href*=#]').on('click', function(e) {
-      e.preventDefault();
-      $('html, body').animate({ scrollTop: $($(this).attr('href')).offset().top}, 500, 'linear');
-    });
-  });
-  </script>
 </head>
-<body ng-controller="MainCtrl">
+<body>
 
-<!-- Page Contents -->
   <div class="ui inverted vertical masthead center aligned segment">
     <div class="ui text container">
-      <h1 class="ui inverted header">
-        Covid-Safe Shopping
-      </h1>
-      <h2>Safe<img src="heart.png"> shopping markets on the map</h2>
-      <div class="ui huge primary button"><a style="color: aliceblue;" href="#mapContent">Get Started</a>></div>
+      <h1 class="ui inverted header">Covid-Safe Shopping</h1>
+      <h2>Safe<img src="heart.png" alt=""> shopping markets on the map</h2>
+      <a class="ui huge primary button" style="color:#fff" href="#mapContent">Get Started</a>
     </div>
   </div>
-  <div style="padding-top: 3em; padding-bottom: 1em;" id="mapContent" class="ui container center aligned">
-    <div class="ui search">
-      <div style="width: 50%;" class="ui icon input">
-        <input class="prompt" id="pac-input" type="text" placeholder="Add address...">
-        <i class="search icon"></i>
-      </div>
-    </div>
-  </div>
-  <div id="map"></div>
 
-  <div style="padding-top: 3em;" class="ui horizontal divider">
-    Recommended markets
+  <div class="ui container" id="mapContent" style="padding-top:3em;padding-bottom:1em">
+    <h2 class="ui header center aligned">
+      <i class="map marker alternate icon" aria-hidden="true"></i>
+      <div class="content">
+        Address search
+        <div class="sub header">
+          The search box is fixed at the bottom-left of the window. Pick a suggestion or use Enter / Go;
+          the map recenters and the table lists nearby markets by driving distance.
+        </div>
+      </div>
+    </h2>
+    <div class="map-wrap">
+      <div id="map" role="application" aria-label="Markets map"></div>
+    </div>
   </div>
+
+  <div class="ui horizontal divider" style="padding-top:3em">Recommended markets</div>
 
   <div class="ui container center aligned">
     <table class="ui celled table">
       <thead>
-        <tr><th class="single line">Rating</th>
-        <th>Market Name</th>
-        <th>Distance</th>
-        <th>Address</th>
-      </tr></thead>
-      <tbody id="output">
-       
-      </tbody>
+        <tr>
+          <th class="single line">Rating</th>
+          <th>Market Name</th>
+          <th>Distance</th>
+          <th>Address</th>
+        </tr>
+      </thead>
+      <tbody id="output"></tbody>
     </table>
   </div>
-  
-  
 
-<script>
-  function initAutocomplete() {
-      // initialize map on LA
-      var map = new google.maps.Map(document.getElementById('map'), {
-        center: {lat: 34.0522, lng: -118.43},
-        zoom: 12,
-        mapTypeId: 'roadmap'
-      });
-      // Create the search box and link it to the UI element.
-      var input = document.getElementById('pac-input');
-      var searchBox = new google.maps.places.SearchBox(input);
-      // Bias the SearchBox results towards current map's viewport.
-      map.addListener('bounds_changed', function() {
-        searchBox.setBounds(map.getBounds());
-      });
+  <div class="map-search-float" aria-label="Address search">
+    <label class="map-search-label" for="pac-input">Search</label>
+    <div class="map-search-row">
+      <input id="pac-input" type="text" placeholder="Address, ZIP, or place…" autocomplete="off" aria-label="Search address">
+      <button type="button" id="pac-search-btn">Go</button>
+    </div>
+    <p class="map-search-hint">Pick a suggestion, or type and press Enter / Go.</p>
+  </div>
 
-      var infoWindow = new google.maps.InfoWindow;
-      var rows;
-      /**
-       *  set the locations of markets
-       */
-      downloadUrl('https://data.lacity.org/api/views/g986-7yf9/rows.xml?accessType=DOWNLOAD', function(data) {
-        var xml = data.responseXML;
-        rows = xml.getElementsByTagName("row");
-        var count = 0;
-        Array.prototype.forEach.call(rows, function(row) {
-          if (row.children.length < 100 & count < 400) {
-              if (row.getElementsByTagName("dba_name")[0] === undefined)
-                  var name = row.getElementsByTagName("business_name")[0].childNodes[0].data; 
-              else
-                  var name = row.getElementsByTagName("dba_name")[0].childNodes[0].data; 
-              var street = row.getElementsByTagName("street_address")[0].childNodes[0].data;
-              if (row.getElementsByTagName("location_1")[0] !== undefined)
-                  var point = new google.maps.LatLng(parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('latitude')), parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('longitude')));
-              
-              var infowincontent = document.createElement('div');
-              var strong = document.createElement('strong');
-              strong.textContent = name
-              infowincontent.appendChild(strong);
-              infowincontent.appendChild(document.createElement('br'));
-              var text = document.createElement('text');
-              text.textContent = street;
-              infowincontent.appendChild(text);
-              var markets = new google.maps.Marker({
-                  map: map,
-                  position: point,
-                  label: 'M'
-              });
-              markets.addListener('click', function() {
-                  console.log(infowincontent);
-                  infoWindow.setContent(infowincontent);
-                  infoWindow.open(map, markets);
-              });
-              count++;
-          }   
-        });
-      });
-
-      // /**
-      //  *  set the cities areas
-      //  */
-      // Set a blank infoWindow to be used for each to state on click
-      var infoWindow = new google.maps.InfoWindow({
-        content: ""
-      });
-      // Create the state data layer and load the GeoJson Data
-      var stateLayer = new google.maps.Data();
-      stateLayer.loadGeoJson('Neighborhoods.geojson');
-      stateLayer.setStyle(function(feature) {
-        return {
-          fillColor: getColor(feature.getProperty('COLI')), // call function to get color for state based on the COLI (Cost of Living Index)
-          fillOpacity: 0.6,
-          strokeColor: '#b3b3b3',
-          strokeWeight: 1,
-          zIndex: 1
-        };
-      });
-      // Add mouseover and mouse out styling for the GeoJSON State data
-      stateLayer.addListener('mouseover', function(e) {
-        stateLayer.overrideStyle(e.feature, {
-          strokeColor: '#2a2a2a',
-          strokeWeight: 2,
-          zIndex: 2
-        });
-      });
-      stateLayer.addListener('mouseout', function(e) {
-        stateLayer.revertStyle();
-      });
-      // Adds an info window on click with in a state that includes the state name and COLI
-      stateLayer.addListener('click', function(e) {
-        console.log(e);
-        infoWindow.setContent('<div style="line-height:1.00;overflow:hidden;white-space:nowrap;">' +
-            e.feature.getProperty('name') + '<br> COVID-19 confirmed: ' +
-            e.feature.getProperty('COLI') + '</div>');
-        var anchor = new google.maps.MVCObject();
-        anchor.set("position", e.latLng);
-        infoWindow.open(map, anchor);
-      });
-      // Final step here sets the stateLayer GeoJSON data onto the map
-      stateLayer.setMap(map);
-
-      // returns a color based on the value given when the function is called
-      function getColor(coli) {
-        var colors = [
-          '#d1ccad',
-          '#89a844',
-          '#ad9202',
-          '#a85d02',
-          '#8a0e26'
-        ];
-        return coli >= 15 ? colors[4] :
-            coli > 10 ? colors[3] :
-                coli > 5 ? colors[2] :
-                    coli > 0 ? colors[1] :
-                        colors[0];
-      }
-
-      var markers = [];
-      // Listen for the event fired when the user selects a prediction and retrieve
-      // more details for that place.
-      searchBox.addListener('places_changed', function() {
-          var places = searchBox.getPlaces();
-          if (places.length == 0)
-            return;
-          // Clear out the old markers.
-          markers.forEach(function(marker) {
-            marker.setMap(null);
-          });
-          markers = [];
-          // For each place, get the icon, name and location.
-          var bounds = new google.maps.LatLngBounds();
-          if (!places[0].geometry) {
-            console.log("Returned place contains no geometry");
-            return;
-          }
-          var icon = {
-            url: places[0].icon,
-            size: new google.maps.Size(71, 71),
-            origin: new google.maps.Point(0, 0),
-            anchor: new google.maps.Point(17, 34),
-            scaledSize: new google.maps.Size(25, 25)
-          };
-          // Create a marker for each place.
-          markers.push(new google.maps.Marker({
-            map: map,
-            icon: icon,
-            title: places[0].name,
-            position: places[0].geometry.location
-          }));
-          if (places[0].geometry.viewport) {
-            // Only geocodes have viewport.
-            bounds.union(places[0].geometry.viewport);
-          } else {
-            bounds.extend(places[0].geometry.location);
-          }
-          map.fitBounds(bounds);
-
-          /**
-           * calculate travel distance
-           */
-          var origin = places[0].geometry.location.toJSON() 
-          var destinations = []
-          var dest_names = []
-          count = 0;
-          Array.prototype.forEach.call(rows, function(row) {
-            if (row.getElementsByTagName("location_1")[0] !== undefined & count < 25) {
-                destinations.push({lat: parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('latitude')), lng: parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('longitude'))})
-                if (row.getElementsByTagName("dba_name")[0] === undefined)
-                  dest_names.push(row.getElementsByTagName("business_name")[0].childNodes[0].data); 
-                else
-                  dest_names.push(row.getElementsByTagName("dba_name")[0].childNodes[0].data); 
-                count++;
-            }
-          });
-          var service = new google.maps.DistanceMatrixService;
-          service.getDistanceMatrix({
-            origins: [origin],
-            destinations: destinations,
-            travelMode: 'DRIVING',
-            unitSystem: google.maps.UnitSystem.METRIC,
-            avoidHighways: false,
-            avoidTolls: false
-          }, function(response, status) {
-            if (status !== 'OK') {
-              alert('Error was: ' + status);
-            } else {
-              var originList = response.originAddresses;
-              var destinationList = response.destinationAddresses;
-              var outputDiv = document.getElementById('output');
-              outputDiv.innerHTML = '';
-              for (var i = 0; i < originList.length; i++) {
-                var results = response.rows[i].elements;
-                var dis_sorted = []
-                for (var j=0; j<results.length; j++) {
-                    if (results[j].distance !== undefined)
-                        dis_sorted.push({value: results[j].distance.value, index: j});
-                }
-                dis_sorted.sort((a, b) => {
-                    return a.value - b.value;
-                });
-                for (var j = 0; j < results.length; j++) {
-                  if (j === 0)
-                    var tempHTML = "<tr><td style=\"\"><h2 style=\"color: gold;\" class=\"ui center aligned header\">#"+(j+1)+"</h2></td>";
-                  else if (j === 1)
-                    var tempHTML = "<tr><td style=\"\"><h2 style=\"color: silver;\" class=\"ui center aligned header\">#"+(j+1)+"</h2></td>";
-                  else if (j === 2)
-                    var tempHTML = "<tr><td style=\"\"><h2 style=\"color: brown;\" class=\"ui center aligned header\">#"+(j+1)+"</h2></td>";
-                  else
-                    var tempHTML = "<tr><td style=\"\"><h3 class=\"ui center aligned \">#"+(j+1)+"</h3></td>";
-                  tempHTML += "<td>"+dest_names[dis_sorted[j].index]+"</td>";
-                  tempHTML += "<td>"+results[dis_sorted[j].index].distance.text+"</td>";
-                  tempHTML += "<td>"+destinationList[j]+"</td></tr>";
-                  outputDiv.innerHTML += tempHTML;
-                  console.log(outputDiv);
-                  // outputDiv.innerHTML += originList[i]+' to '+destinationList[j]+': '+ results[dis_sorted[j].index].distance.text+' in '+results[j].duration.text+'<br>';
-                }
-              }
-            }
-          });
-      });
-  }
-
-  function downloadUrl(url, callback) {
-    var request = window.ActiveXObject ? new ActiveXObject('Microsoft.XMLHTTP') : new XMLHttpRequest;
-    request.onreadystatechange = function() {
-      if (request.readyState == 4) {
-        request.onreadystatechange = doNothing;
-        callback(request, request.status);
-      }
-    };
-    request.open('GET', url, true);
-    request.send(null);
-  }
-
-  function doNothing() {}
-</script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBeiLe_l1SjazmA39AIBp_hSJHdPQqkH7g&libraries=places&callback=initAutocomplete"
-async defer></script>
-</body></html>
+  <script src="lacity-location.js"></script>
+  <script src="js/homepage-map.js"></script>
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&libraries=places&callback=initAutocomplete&loading=async&v=weekly"></script>
+</body>
+</html>

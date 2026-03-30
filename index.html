@@ -7,13 +7,19 @@
       /* Always set the map height explicitly to define the size of the div
        * element that contains the map. */
       #map {
-        height: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
       }
       /* Optional: Makes the sample page fill the window. */
       html, body {
         height: 100%;
         margin: 0;
         padding: 0;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
       }
       #floating-panel1 {
         position: absolute;
@@ -64,20 +70,25 @@
             display:none;
         }
 
+        #covid-data-banner {
+            flex-shrink: 0;
+            position: relative;
+            z-index: 6;
+            font-family: 'Roboto', sans-serif;
+            font-size: 13px;
+            line-height: 1.45;
+            padding: 10px 14px;
+            margin: 0;
+            background: #f4f7fb;
+            border-top: 1px solid #c5d4e0;
+            color: #1a1a1a;
+            max-height: 38vh;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+        #covid-data-banner strong { color: #0d47a1; }
+
     </style>
-
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-  <script src="papaparse.min.js"></script>
-      <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
-
-     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
-   integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
-   crossorigin=""/>
-     <!-- Make sure you put this AFTER Leaflet's CSS -->
-   <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
-   integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
-   crossorigin=""></script>
-
 
   </head>
 
@@ -93,151 +104,16 @@
     </div>
 
      <div id="floating-panel2">
-      <input onclick="clearMarkers();" type=button value="Hide Markers">
-      <input onclick="showMarkers();" type=button value="Show All Markers">
-      <input onclick="deleteMarkers();" type=button value="Delete Markers">
+      <input id="btn-clear-markers" type="button" value="Hide Markers">
+      <input id="btn-show-markers" type="button" value="Show All Markers">
+      <input id="btn-delete-markers" type="button" value="Delete Markers">
     </div>
     <div id="map"></div>
-    <script>
-      //information
-     var contentString = '<div id="content">'+
-            '<div id="siteNotice">'+
-            '</div>'+
-            '<h1 id="firstHeading" class="firstHeading">Los Angeles</h1>'+
-            '<div id="bodyContent">'+
-            '<p><b>Los Angeles</b>, a city </p>'+
-            '</div>'+
-            '</div>';
-      var map;
-       var markers = [];
-        var infoWindow = new google.maps.InfoWindow({
-		      content: ""
-		  	});
-      function initMap() {
-          map = new google.maps.Map(document.getElementById('map'), {zoom: 11});
-        //Geocode to Los Angeles initially
-        var geocoder = new google.maps.Geocoder;
-        //Geocd Los Angeles
-        geocoder.geocode({'address': 'Los Angeles'}, function (results, status) {
-          if (status === 'OK') {
-            map.setCenter(results[0].geometry.location);
-
-            //Mark, Click event and infor windown
-            var marker = new google.maps.Marker({
-              map: map,
-              position: results[0].geometry.location
-            });
-            markers.push(marker);
-
-             infowindow = new google.maps.InfoWindow({
-              content: contentString
-            });
-            //Information window
-            marker.addListener('click', function () {
-              infowindow.open(map, marker);
-            });
-          } else {
-            window.alert('Geocode was not successful for the following reason: ' +
-                    status);
-          }
-        });
-        //Gecode the city by enter the name or zipcode
-          document.getElementById('submit').addEventListener('click', function() {
-          geocodeAddress(geocoder, map);
-        })
-          cityboundries();
-      }
-
-
-      // Adds a marker to the map and push to the array.
-
-      //Markers show and remove
-      // Sets the map on all markers in the array.
-      function setMapOnAll(map) {
-        for (var i = 0; i < markers.length; i++) {
-          markers[i].setMap(map);
-        }
-      }
-      // Removes the markers from the map, but keeps them in the array.
-      function clearMarkers() {
-        setMapOnAll(null);
-      }
-      // Shows any markers currently in the array.
-      function showMarkers() {
-        setMapOnAll(map);
-      }
-      // Deletes all markers in the array by removing references to them.
-      function deleteMarkers() {
-        clearMarkers();
-        markers = [];
-      }
-
-
-        //Geocode CITY
-      function geocodeAddress(geocoder, resultsMap) {
-        var address = document.getElementById('address').value;
-        geocoder.geocode({'address': address}, function(results, status) {
-          if (status === 'OK') {
-            resultsMap.setCenter(results[0].geometry.location);
-            var marker = new google.maps.Marker({
-              map: resultsMap,
-              position: results[0].geometry.location
-            });
-            // Adds a marker to the map and push to the array.
-            markers.push(marker);
-          } else {
-            alert('Geocode was not successful for the following reason: ' + status);
-          }
-        });
-      }
-    }
-  </script>
-</head>
-<script>
-      //Import city boundries geojson data
-      function cityboundries(){
-          infoWindow = new google.maps.InfoWindow({
-		      content: ""
-		  	});
-           map.data.loadGeoJson('lacityboundry.geojson');
-           map.data.setStyle(function(feature) {
-            var color = 'gray';
-            if (feature.getProperty('isColorful')) {
-                color = feature.getProperty('color');
-                }
-                return /** @type {!google.maps.Data.StyleOptions} */({
-                fillColor: color,
-                strokeColor: color,
-                strokeWeight: 1.2,
-                    fillOpacity:0.3,
-                  });
-               return {icon:feature.getProperty('icon')};
-                });
-            // When the user clicks, set 'isColorful', changing the color of the letters.
-
-            map.data.addListener('click', function(event) {
-                map.data.overrideStyle(event.feature, {fillColor: '#3399FF',fillOpacity:0.3, strokeOpacity:0.7, strokeWeight: 3.5});
-
-            //show an infowindow on click
-				infoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;"> City: '+
-											event.feature.getProperty("city_label")  +"<br/>Novel Coronavirus Cases: " + event.feature.getProperty("value") + "</div>");
-				var anchor = new google.maps.MVCObject();
-				anchor.set("position",event.latLng);
-				infoWindow.open(map,anchor);
-
-            });
-
-            // When the user hovers, tempt them to click by outlining the letters.
-            // Call revertStyle() to remove all overrides. This will use the style rules
-            // defined in the function passed to setStyle()
-
-            map.data.addListener('mousedown', function(event) {
-                map.data.revertStyle();
-            });
-      }
-    </script>
-    <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDet-rQNX5noBLzcyeLf-FK0mT9cVYOPCo&callback=initMap">
+    <div id="covid-data-banner" role="status">Loading data notes and <code>coronavirus.csv</code>…</div>
+  <script src="js/covid-data-note.js"></script>
+  <script src="js/index-app.js"></script>
+    <script async
+    src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&callback=initMap&loading=async&v=weekly">
     </script>
   </body>
 </html>

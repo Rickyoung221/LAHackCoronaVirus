@@ -1,7 +1,5 @@
 from bs4 import BeautifulSoup
-import requests
 import csv
-import datetime
 import time
 import schedule
 import urllib

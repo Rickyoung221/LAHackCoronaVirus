@@ -1,0 +1,122 @@
+/* Homepage layout + map + fixed search (Covid-Safe Shopping) */
+
+.map-wrap {
+  position: relative;
+  margin-top: 1.5rem;
+  border-radius: 0.28571429rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.12), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+#map {
+  width: 100%;
+  min-height: 55vh;
+  height: 480px;
+  background: #e8eef2;
+}
+
+.map-search-float {
+  position: fixed !important;
+  left: 16px !important;
+  bottom: 16px !important;
+  right: auto !important;
+  top: auto !important;
+  z-index: 2147483646;
+  box-sizing: border-box;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.map-search-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.map-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.map-search-row .pac-target-input,
+.map-search-row input#pac-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 16px;
+  line-height: 1.3;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+}
+
+.map-search-row input#pac-input:focus {
+  outline: none;
+  border-color: #2185d0;
+  box-shadow: 0 0 0 2px rgba(33, 133, 208, 0.2);
+}
+
+#pac-search-btn {
+  flex-shrink: 0;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #2185d0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#pac-search-btn:hover {
+  background: #1678c2;
+}
+
+#pac-search-btn:active {
+  background: #0d6394;
+}
+
+.map-search-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #666;
+}
+
+.pac-container {
+  z-index: 2147483647 !important;
+  font-family: Lato, "Helvetica Neue", Arial, Helvetica, sans-serif !important;
+  border-radius: 0.28571429rem;
+  margin-top: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.masthead.segment {
+  min-height: 700px;
+  padding: 1em 0;
+}
+
+.masthead h1.ui.header {
+  margin-top: 3em;
+  margin-bottom: 0;
+  font-size: 4em;
+  font-weight: normal;
+}
+
+.masthead h2 {
+  font-size: 1.7em;
+  font-weight: normal;
+}

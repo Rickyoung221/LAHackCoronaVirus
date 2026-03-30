@@ -1,4 +1,5 @@
-<!DOCTYPE html >
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
     <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
@@ -17,16 +18,19 @@
         }
     </style>
 </head>
-
-<html>
 <body>
 <div id="map"></div>
 
+<script src="lacity-location.js"></script>
 <script>
-    function initMap() {
+    async function initMap() {
+        var markerLib = await google.maps.importLibrary('marker');
+        var AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
+        var PinElement = markerLib.PinElement;
         var map = new google.maps.Map(document.getElementById('map'), {
             center: new google.maps.LatLng(34.052235, -118.243683),
-            zoom: 10
+            zoom: 10,
+            mapId: 'DEMO_MAP_ID',
         });
         var infoWindow = new google.maps.InfoWindow;
 
@@ -37,9 +41,9 @@
             Array.prototype.forEach.call(rows, function (markerElem) {
                     var name = markerElem.getElementsByTagName("dba_name")[0].childNodes[0].data;
                     var address = markerElem.getElementsByTagName("street_address")[0].childNodes[0].data;
-                    var point = new google.maps.LatLng(
-                        parseFloat(markerElem.getElementsByTagName("location_1")[0].getAttribute('latitude')),
-                        parseFloat(markerElem.getElementsByTagName("location_1")[0].getAttribute('longitude')));
+                    var loc = lacityParseLocation1(markerElem.getElementsByTagName("location_1")[0]);
+                    if (!loc) return;
+                    var point = new google.maps.LatLng(loc.lat, loc.lng);
 
                     var infowincontent = document.createElement('div');
                     var strong = document.createElement('strong');
@@ -51,12 +55,18 @@
                     text.textContent = address
                     infowincontent.appendChild(text);
                     //var icon = customLabel[type] || {};
-                    var marker = new google.maps.Marker({
+                    var pin = new PinElement({
+                      background: '#1a73e8',
+                      borderColor: '#174ea6',
+                      glyph: 'M',
+                      glyphColor: 'white',
+                    });
+                    var marker = new AdvancedMarkerElement({
                         map: map,
                         position: point,
-                        label: 'M'
+                        content: pin.element,
                     });
-                    marker.addListener('click', function () {
+                    marker.addListener('gmp-click', function () {
                         infoWindow.setContent(infowincontent);
                         infoWindow.open(map, marker);
                     });
@@ -83,8 +93,8 @@
 
     function doNothing() {}
 </script>
-<script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDet-rQNX5noBLzcyeLf-FK0mT9cVYOPCo&callback=initMap">
+<script async
+        src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&callback=initMap&loading=async&v=weekly">
 </script>
 </body>
 </html>

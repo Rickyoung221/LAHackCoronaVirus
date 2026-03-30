@@ -1,0 +1,7 @@
+{
+  "watch": ["."],
+  "ext": "html,htm,js,json,csv,geojson",
+  "ignore": ["dist", "node_modules", "Semantic-UI-CSS-master", ".git"],
+  "delay": "300",
+  "exec": "npm run build"
+}

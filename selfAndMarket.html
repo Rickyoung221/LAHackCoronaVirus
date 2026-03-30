@@ -23,7 +23,7 @@
           Safe Shopping
         </h1>
         <h2>Safe shopping markets on the map</h2>
-        <div class="ui huge primary button"><a style="color: aliceblue;" href="#map">Get Started</a>></div>
+        <a class="ui huge primary button" style="color: #fff;" href="#map">Get Started</a>
       </div>
     </div>
 
@@ -39,13 +39,18 @@
     <div id="output"></div>
     <div id="map"></div>
 
+    <script src="lacity-location.js"></script>
     <script>
-      function initAutocomplete() {
+      async function initAutocomplete() {
+        var markerLib = await google.maps.importLibrary('marker');
+        var AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
+        var PinElement = markerLib.PinElement;
         // initialize map on LA
         var map = new google.maps.Map(document.getElementById('map'), {
           center: {lat: 34.0522, lng: -118.2437},
           zoom: 11,
-          mapTypeId: 'roadmap'
+          mapTypeId: 'roadmap',
+          mapId: 'DEMO_MAP_ID',
         });
         // Create the search box and link it to the UI element.
         var input = document.getElementById('pac-input');
@@ -66,15 +71,16 @@
             rows = xml.getElementsByTagName("row");
             var count = 0;
             Array.prototype.forEach.call(rows, function(row) {
-                if (row.children.length < 100 & count < 400) {
+                if (row.children.length < 100 && count < 400) {
                     if (row.getElementsByTagName("dba_name")[0] === undefined)
                         var name = row.getElementsByTagName("business_name")[0].childNodes[0].data; 
                     else
                         var name = row.getElementsByTagName("dba_name")[0].childNodes[0].data; 
                     var street = row.getElementsByTagName("street_address")[0].childNodes[0].data;
-                    if (row.getElementsByTagName("location_1")[0] !== undefined)
-                        var point = new google.maps.LatLng(parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('latitude')), parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('longitude')));
-                    
+                    var loc = lacityParseLocation1(row.getElementsByTagName("location_1")[0]);
+                    if (!loc) return;
+                    var point = new google.maps.LatLng(loc.lat, loc.lng);
+
                     var infowincontent = document.createElement('div');
                     var strong = document.createElement('strong');
                     strong.textContent = name
@@ -83,13 +89,18 @@
                     var text = document.createElement('text');
                     text.textContent = street;
                     infowincontent.appendChild(text);
-                    var markets = new google.maps.Marker({
+                    var pin = new PinElement({
+                      background: '#1a73e8',
+                      borderColor: '#174ea6',
+                      glyph: 'M',
+                      glyphColor: 'white',
+                    });
+                    var markets = new AdvancedMarkerElement({
                         map: map,
                         position: point,
-                        label: 'M'
+                        content: pin.element,
                     });
-                    markets.addListener('click', function() {
-                        console.log(infowincontent);
+                    markets.addListener('gmp-click', function() {
                         infoWindow.setContent(infowincontent);
                         infoWindow.open(map, markets);
                     });
@@ -107,26 +118,22 @@
             return;
           // Clear out the old markers.
           markers.forEach(function(marker) {
-            marker.setMap(null);
+            marker.map = null;
           });
           markers = [];
           // For each place, get the icon, name and location.
           var bounds = new google.maps.LatLngBounds();
           if (!places[0].geometry) {
-            console.log("Returned place contains no geometry");
             return;
           }
-          var icon = {
-            url: places[0].icon,
-            size: new google.maps.Size(71, 71),
-            origin: new google.maps.Point(0, 0),
-            anchor: new google.maps.Point(17, 34),
-            scaledSize: new google.maps.Size(25, 25)
-          };
-          // Create a marker for each place.
-          markers.push(new google.maps.Marker({
+          var placeIcon = document.createElement('img');
+          placeIcon.src = places[0].icon;
+          placeIcon.width = 25;
+          placeIcon.height = 25;
+          placeIcon.alt = '';
+          markers.push(new AdvancedMarkerElement({
             map: map,
-            icon: icon,
+            content: placeIcon,
             title: places[0].name,
             position: places[0].geometry.location
           }));
@@ -146,10 +153,11 @@
           var destinations = []
           count = 0;
           Array.prototype.forEach.call(rows, function(row) {
-            if (row.getElementsByTagName("location_1")[0] !== undefined & count < 25) {
-                destinations.push({lat: parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('latitude')), lng: parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('longitude'))})
-                count++;
-            }
+            if (count >= 25) return;
+            var loc = lacityParseLocation1(row.getElementsByTagName("location_1")[0]);
+            if (!loc) return;
+            destinations.push({ lat: loc.lat, lng: loc.lng });
+            count++;
           });
           var service = new google.maps.DistanceMatrixService;
           service.getDistanceMatrix({
@@ -178,7 +186,6 @@
                     return a.value - b.value;
                 });
                 for (var j = 0; j < results.length; j++) {
-                  console.log(results[j].distance)
                   outputDiv.innerHTML += originList[i]+' to '+destinationList[j]+': '+ results[dis_sorted[j].index].distance.text+' in '+results[j].duration.text+'<br>';
                 }
               }
@@ -204,7 +211,7 @@
       function doNothing() {}
 
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBeiLe_l1SjazmA39AIBp_hSJHdPQqkH7g&libraries=places&callback=initAutocomplete"
-         async defer></script>
+    <script async
+      src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&libraries=places&callback=initAutocomplete&loading=async&v=weekly"></script>
   </body>
 </html>

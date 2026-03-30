@@ -1,4 +1,5 @@
-<!DOCTYPE html >
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
     <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
@@ -14,18 +15,21 @@
       }
     </style>
   </head>
-
-<html>
   <body>
     <input id="pac-input" type="text" placeholder="Search Box">
     <div id="map"></div>
 
+    <script src="lacity-location.js"></script>
     <script>
-      function initMap() {
+      async function initMap() {
+        var markerLib = await google.maps.importLibrary('marker');
+        var AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
+        var PinElement = markerLib.PinElement;
         var map = new google.maps.Map(document.getElementById('map'), {
           center: {lat: 34.0522, lng: -118.2437},
           zoom: 15,
-          mapTypeId: 'roadmap'
+          mapTypeId: 'roadmap',
+          mapId: 'DEMO_MAP_ID',
         });
        
         var infoWindow = new google.maps.InfoWindow;
@@ -36,15 +40,16 @@
             var rows = xml.getElementsByTagName("row");
             var count = 0;
             Array.prototype.forEach.call(rows, function(row) {
-                if (row.children.length < 100 & count < 100) {
+                if (row.children.length < 100 && count < 100) {
                     if (row.getElementsByTagName("dba_name")[0] === undefined)
                         var name = row.getElementsByTagName("business_name")[0].childNodes[0].data; 
                     else
                         var name = row.getElementsByTagName("dba_name")[0].childNodes[0].data; 
                     var street = row.getElementsByTagName("street_address")[0].childNodes[0].data;
-                    if (row.getElementsByTagName("location_1")[0] !== undefined)
-                        var point = new google.maps.LatLng(parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('latitude')), parseFloat(row.getElementsByTagName("location_1")[0].getAttribute('longitude')));
-                    
+                    var loc = lacityParseLocation1(row.getElementsByTagName("location_1")[0]);
+                    if (!loc) return;
+                    var point = new google.maps.LatLng(loc.lat, loc.lng);
+
                     var infowincontent = document.createElement('div');
                     var strong = document.createElement('strong');
                     strong.textContent = name
@@ -53,13 +58,18 @@
                     var text = document.createElement('text');
                     text.textContent = street;
                     infowincontent.appendChild(text);
-                    var markets = new google.maps.Marker({
+                    var pin = new PinElement({
+                      background: '#1a73e8',
+                      borderColor: '#174ea6',
+                      glyph: 'M',
+                      glyphColor: 'white',
+                    });
+                    var markets = new AdvancedMarkerElement({
                         map: map,
                         position: point,
-                        label: 'M'
+                        content: pin.element,
                     });
-                    markets.addListener('click', function() {
-                        console.log(infowincontent);
+                    markets.addListener('gmp-click', function() {
                         infoWindow.setContent(infowincontent);
                         infoWindow.open(map, markets);
                     });
@@ -84,8 +94,8 @@
       function doNothing() {}
 
     </script>
-    <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBeiLe_l1SjazmA39AIBp_hSJHdPQqkH7g&callback=initMap">
+    <script async
+    src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&callback=initMap&loading=async&v=weekly">
     </script>
   </body>
 </html>

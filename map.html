@@ -1,14 +1,15 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
-    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta charset="utf-8" />
     <title>Places Search Box</title>
     <style>
       #map {
         height: 100%;
       }
-      html, body {
+      html,
+      body {
         height: 100%;
         margin: 0;
         padding: 0;
@@ -16,33 +17,35 @@
     </style>
   </head>
   <body>
-
-    <input id="pac-input" type="text" placeholder="Search Box">
+    <input id="pac-input" type="text" placeholder="Search Box" />
     <div id="output"></div>
     <div id="map"></div>
 
     <script>
-      function initAutocomplete() {
+      async function initAutocomplete() {
+        var markerLib = await google.maps.importLibrary("marker");
+        var AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
         // initialize map on LA
-        var map = new google.maps.Map(document.getElementById('map'), {
-          center: {lat: 34.0522, lng: -118.2437},
+        var map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 34.0522, lng: -118.2437 },
           zoom: 11,
-          mapTypeId: 'roadmap'
+          mapTypeId: "roadmap",
+          mapId: "DEMO_MAP_ID",
         });
 
         // Create the search box and link it to the UI element.
-        var input = document.getElementById('pac-input');
+        var input = document.getElementById("pac-input");
         var searchBox = new google.maps.places.SearchBox(input);
 
         // Bias the SearchBox results towards current map's viewport.
-        map.addListener('bounds_changed', function() {
+        map.addListener("bounds_changed", function () {
           searchBox.setBounds(map.getBounds());
         });
 
         var markers = [];
         // Listen for the event fired when the user selects a prediction and retrieve
         // more details for that place.
-        searchBox.addListener('places_changed', function() {
+        searchBox.addListener("places_changed", function () {
           var places = searchBox.getPlaces();
 
           if (places.length == 0) {
@@ -50,32 +53,30 @@
           }
 
           // Clear out the old markers.
-          markers.forEach(function(marker) {
-            marker.setMap(null);
+          markers.forEach(function (marker) {
+            marker.map = null;
           });
           markers = [];
 
           // For each place, get the icon, name and location.
           var bounds = new google.maps.LatLngBounds();
           if (!places[0].geometry) {
-            console.log("Returned place contains no geometry");
             return;
           }
-          var icon = {
-            url: places[0].icon,
-            size: new google.maps.Size(71, 71),
-            origin: new google.maps.Point(0, 0),
-            anchor: new google.maps.Point(17, 34),
-            scaledSize: new google.maps.Size(25, 25)
-          };
+          var placeIcon = document.createElement("img");
+          placeIcon.src = places[0].icon;
+          placeIcon.width = 25;
+          placeIcon.height = 25;
+          placeIcon.alt = "";
 
-          // Create a marker for each place.
-          markers.push(new google.maps.Marker({
-            map: map,
-            icon: icon,
-            title: places[0].name,
-            position: places[0].geometry.location
-          }));
+          markers.push(
+            new AdvancedMarkerElement({
+              map: map,
+              content: placeIcon,
+              title: places[0].name,
+              position: places[0].geometry.location,
+            }),
+          );
 
           if (places[0].geometry.viewport) {
             // Only geocodes have viewport.
@@ -85,43 +86,57 @@
           }
           map.fitBounds(bounds);
 
-
           /**
            * calculate travel distance
            */
-          var origin = places[0].geometry.location.toJSON()
-          var destinations = [{lat: 34.0451, lng: -118.3533}, {lat: 34.0621, lng: -118.271}, {lat: 34.0045, lng: -118.4302}]
-          
-          var service = new google.maps.DistanceMatrixService;
-          service.getDistanceMatrix({
-            origins: [origin],
-            destinations: destinations,
-            travelMode: 'DRIVING',
-            unitSystem: google.maps.UnitSystem.METRIC,
-            avoidHighways: false,
-            avoidTolls: false
-          }, function(response, status) {
-            if (status !== 'OK') {
-              alert('Error was: ' + status);
-            } else {
-              var originList = response.originAddresses;
-              var destinationList = response.destinationAddresses;
-              var outputDiv = document.getElementById('output');
-              outputDiv.innerHTML = '';
-              for (var i = 0; i < originList.length; i++) {
-                var results = response.rows[i].elements;
-                for (var j = 0; j < results.length; j++) {
-                  outputDiv.innerHTML += originList[i]+' to '+destinationList[j]+': '+results[j].distance.text+' in '+results[j].duration.text+'<br>';
+          var origin = places[0].geometry.location.toJSON();
+          var destinations = [
+            { lat: 34.0451, lng: -118.3533 },
+            { lat: 34.0621, lng: -118.271 },
+            { lat: 34.0045, lng: -118.4302 },
+          ];
+
+          var service = new google.maps.DistanceMatrixService();
+          service.getDistanceMatrix(
+            {
+              origins: [origin],
+              destinations: destinations,
+              travelMode: "DRIVING",
+              unitSystem: google.maps.UnitSystem.METRIC,
+              avoidHighways: false,
+              avoidTolls: false,
+            },
+            function (response, status) {
+              if (status !== "OK") {
+                alert("Error was: " + status);
+              } else {
+                var originList = response.originAddresses;
+                var destinationList = response.destinationAddresses;
+                var outputDiv = document.getElementById("output");
+                outputDiv.innerHTML = "";
+                for (var i = 0; i < originList.length; i++) {
+                  var results = response.rows[i].elements;
+                  for (var j = 0; j < results.length; j++) {
+                    outputDiv.innerHTML +=
+                      originList[i] +
+                      " to " +
+                      destinationList[j] +
+                      ": " +
+                      results[j].distance.text +
+                      " in " +
+                      results[j].duration.text +
+                      "<br>";
+                  }
                 }
               }
-
-            }
-          });
+            },
+          );
         });
       }
-
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBeiLe_l1SjazmA39AIBp_hSJHdPQqkH7g&libraries=places&callback=initAutocomplete"
-         async defer></script>
+    <script
+      async
+      src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&libraries=places&callback=initAutocomplete&loading=async&v=weekly"
+    ></script>
   </body>
 </html>

@@ -1,63 +1,64 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <meta charset="utf-8">
+  <head>
+    <meta charset="utf-8" />
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
     <title>Mashups with google.maps.Data</title>
     <style>
-        #map {
-            height: 100%;
-        }
-        /* Optional: Makes the sample page fill the window. */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
     </style>
-</head>
-<body>
-    <input type="text">
-<div id="map"></div>
-<script>
-    function initMap() {
-
-        // load the map
-        map = new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 34.0522, lng: -118.2437},
-            zoom: 10,
-            styles: mapStyle
+  </head>
+  <body>
+    <input type="text" />
+    <div id="map"></div>
+    <script>
+      function initMap() {
+        var mapStyle = [
+          {
+            featureType: "all",
+            elementType: "all",
+            stylers: [{ visibility: "off" }],
+          },
+          {
+            featureType: "landscape",
+            elementType: "geometry",
+            stylers: [{ visibility: "on" }, { color: "#fcfcfc" }],
+          },
+          {
+            featureType: "water",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }],
+          },
+          {
+            featureType: "water",
+            elementType: "geometry",
+            stylers: [
+              { visibility: "on" },
+              { hue: "#5f94ff" },
+              { lightness: 60 },
+            ],
+          },
+        ];
+        var map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 34.0522, lng: -118.2437 },
+          zoom: 10,
+          styles: mapStyle,
         });
-
-        var mapStyle = [{
-            'featureType': 'all',
-            'elementType': 'all',
-            'stylers': [{'visibility': 'off'}]
-        }, {
-            'featureType': 'landscape',
-            'elementType': 'geometry',
-            'stylers': [{'visibility': 'on'}, {'color': '#fcfcfc'}]
-        }, {
-            'featureType': 'water',
-            'elementType': 'labels',
-            'stylers': [{'visibility': 'off'}]
-        }, {
-            'featureType': 'water',
-            'elementType': 'geometry',
-            'stylers': [{'visibility': 'on'}, {'hue': '#5f94ff'}, {'lightness': 60}]
-        }];
-        loadMapShapes();
-    }
-
-    /** Loads the state boundary polygons from a GeoJSON source. */
-    function loadMapShapes() {
-        // load US state outline polygons from a GeoJSON file
-        map.data.loadGeoJson('la.geojson');
-    }
-
-</script>
-<script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBeiLe_l1SjazmA39AIBp_hSJHdPQqkH7g&callback=initMap">
-</script>
-</body>
+        map.data.loadGeoJson("lacityboundry.geojson");
+      }
+    </script>
+    <script
+      async
+      src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&callback=initMap&loading=async&v=weekly"
+    ></script>
+  </body>
 </html>
