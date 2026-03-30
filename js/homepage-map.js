@@ -1,6 +1,7 @@
 /**
  * Homepage map: L.A. certified retail markets (Socrata XML), optional neighborhood context layer,
- * PlaceAutocompleteElement (Places API New) + Geocoder, driving-distance table (RouteMatrix). window.initAutocomplete = Maps callback.
+ * PlaceAutocompleteElement (Places API New) + Geocoder, driving-distance table: RouteMatrix when Routes API is enabled,
+ * else fallback to DistanceMatrixService (Distance Matrix API). window.initAutocomplete = Maps callback.
  *
  * Pins use AdvancedMarkerElement + PinElement (requires mapId). Default DEMO_MAP_ID matches other pages in this repo;
  * for production, create a Map ID in Google Cloud → Map Management and replace MAP_ID below.
@@ -95,6 +96,42 @@
       msg.replace(/</g, '&lt;') +
       '</p>'
     );
+  }
+
+  /** True when Google rejected the call because Routes API is off (typical 403 / SERVICE_DISABLED). */
+  function routesApiDisabledError(err) {
+    var msg = err && err.message ? String(err.message) : '';
+    var lower = msg.toLowerCase();
+    if (lower.indexOf('routes api') !== -1 && lower.indexOf('disabled') !== -1) return true;
+    if (lower.indexOf('routes api') !== -1 && lower.indexOf('not been used') !== -1) return true;
+    if (lower.indexOf('service_disabled') !== -1 && lower.indexOf('routes') !== -1) return true;
+    if (
+      lower.indexOf('routes_compute_route_matrix') !== -1 &&
+      lower.indexOf('permission_denied') !== -1
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function legacyDistanceMatrixErrorHtml(status) {
+    if (status === 'REQUEST_DENIED') {
+      return (
+        '<div class="header">Distance request denied</div>' +
+        '<p>Fallback uses the legacy <strong>Distance Matrix API</strong>. Enable it on the <em>same</em> key as Maps, or enable <strong>Routes API</strong> instead (recommended).</p>' +
+        '<ul style="margin:0.35em 0 0 1.1em;text-align:left;max-width:42em;margin-left:auto;margin-right:auto">' +
+        '<li>Console → <strong>Library</strong> → <strong>Distance Matrix API</strong> or <strong>Routes API</strong></li>' +
+        '<li>Billing enabled · HTTP referrer restrictions include your site</li>' +
+        '</ul>'
+      );
+    }
+    if (status === 'OVER_QUERY_LIMIT') {
+      return (
+        '<div class="header">Distance quota exceeded</div>' +
+        '<p>Check billing and quotas in Google Cloud Console.</p>'
+      );
+    }
+    return '<div class="header">Distance request failed</div><p>' + String(status) + '</p>';
   }
 
   /** Adapts RouteMatrix row items to the shape expected by appendSortedDistanceRows. */
@@ -406,11 +443,49 @@
         return;
       }
 
-      if (typeof google.maps.importLibrary !== 'function') {
+      function showDistanceErrorHtml(html) {
         outputDiv.innerHTML =
           '<tr><td colspan="4"><div class="ui negative message" style="margin:0;text-align:center">' +
-          '<p>Route Matrix requires a current Maps JavaScript API loader (<code>importLibrary</code>).</p>' +
+          html +
           '</div></td></tr>';
+      }
+
+      function applyLegacyDistanceMatrix() {
+        if (!google.maps.DistanceMatrixService) {
+          return false;
+        }
+        new google.maps.DistanceMatrixService().getDistanceMatrix(
+          {
+            origins: [origin],
+            destinations: destinations,
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.METRIC,
+            avoidHighways: false,
+            avoidTolls: false,
+          },
+          function (response, status) {
+            if (status !== 'OK') {
+              showDistanceErrorHtml(legacyDistanceMatrixErrorHtml(status));
+              return;
+            }
+            outputDiv.innerHTML = '';
+            appendSortedDistanceRows(
+              outputDiv,
+              destNames,
+              response.destinationAddresses,
+              response.rows[0].elements
+            );
+          }
+        );
+        return true;
+      }
+
+      if (typeof google.maps.importLibrary !== 'function') {
+        if (!applyLegacyDistanceMatrix()) {
+          showDistanceErrorHtml(
+            '<p>This browser build needs <code>importLibrary</code> or <code>DistanceMatrixService</code>.</p>'
+          );
+        }
         return;
       }
 
@@ -450,10 +525,15 @@
           );
         })
         .catch(function (err) {
-          outputDiv.innerHTML =
-            '<tr><td colspan="4"><div class="ui negative message" style="margin:0;text-align:center">' +
-            routeMatrixFailureHtml(err) +
-            '</div></td></tr>';
+          if (routesApiDisabledError(err) && applyLegacyDistanceMatrix()) {
+            if (typeof console !== 'undefined' && console.info) {
+              console.info(
+                'homepage-map: Routes API unavailable; using Distance Matrix API. Enable Routes API for the recommended route matrix.'
+              );
+            }
+            return;
+          }
+          showDistanceErrorHtml(routeMatrixFailureHtml(err));
           if (typeof console !== 'undefined' && console.warn) {
             console.warn('RouteMatrix.computeRouteMatrix:', err);
           }

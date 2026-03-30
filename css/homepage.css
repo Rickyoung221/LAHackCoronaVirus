@@ -20,9 +20,10 @@
 
 .map-search-panel {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  left: auto;
+  bottom: 28px;
+  left: 12px;
+  top: auto;
+  right: auto;
   z-index: 100;
   overflow: visible;
   box-sizing: border-box;
@@ -38,9 +39,11 @@
 
 @media (max-width: 480px) {
   .map-search-panel {
-    top: 8px;
+    bottom: 22px;
+    left: 8px;
     right: 8px;
-    width: calc(100% - 16px);
+    top: auto;
+    width: auto;
     max-width: none;
   }
 }
@@ -118,13 +121,6 @@
 
 #pac-search-btn:active {
   background: #0d6394;
-}
-
-.map-search-hint {
-  margin: 8px 0 0;
-  font-size: 11px;
-  line-height: 1.35;
-  color: #666;
 }
 
 .pac-container {
